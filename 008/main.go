@@ -98,25 +98,37 @@ func main() {
 		zero, one, two, three, four, five, six, seven, eight, nine,
 	}
 
-	now := time.Now()
-	hour, min, sec := now.Hour(), now.Minute(), now.Second()
+	for {
 
-	// [8][5]string -> [8]placeholder
-	clock := [...]placeholder{
-		digits[hour/10], digits[hour%10],
-		colon,
-		digits[min/10], digits[min%10],
-		colon,
-		digits[sec/10], digits[sec%10],
-	}
+		fmt.Print("\033[2J")
 
-	//same as :
-	//	for line := 0; line < 5; line++
-	for line := range clock[0] {
-		for digit := range clock {
-			fmt.Print(clock[digit][line], "   ")
+		now := time.Now()
+		hour, min, sec := now.Hour(), now.Minute(), now.Second()
+
+		// [8][5]string -> [8]placeholder
+		clock := [...]placeholder{
+			digits[hour/10], digits[hour%10],
+			colon,
+			digits[min/10], digits[min%10],
+			colon,
+			digits[sec/10], digits[sec%10],
+		}
+
+		//same as :
+		//	for line := 0; line < 5; line++
+		for line := range clock[0] {
+			for index, digit := range clock {
+				next := clock[index][line]
+				if digit == colon && sec%2 == 0 {
+					next = "     "
+				}
+				fmt.Print(next, "   ")
+			}
+			fmt.Println()
 		}
 		fmt.Println()
+
+		time.Sleep(time.Second)
 	}
 
 }
