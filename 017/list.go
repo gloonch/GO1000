@@ -21,3 +21,17 @@ func (items list) print() {
 		l.print()
 	}
 }
+
+func (items list) discount(ratio float64) {
+	type discounter interface {
+		discount(ratio float64)
+	}
+
+	for _, l := range items {
+		//if l, hasDiscount := l.(interface {discount(ratio float64)}); hasDiscount { // using interface inline
+		//g, isGame := l.(*game) { // finding out the dynamic value of an interface
+		if l, hasDiscount := l.(discounter); hasDiscount {
+			l.discount(ratio)
+		}
+	}
+}
