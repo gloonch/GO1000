@@ -7,8 +7,7 @@ import (
 )
 
 type book struct {
-	title      string
-	price      money
+	product
 	publishing interface{}
 }
 

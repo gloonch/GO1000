@@ -3,11 +3,12 @@ package main
 import "fmt"
 
 // an abstract type/protocol/contract **no implementation
-type printer interface {
+type item interface {
 	print()
+	discount(ratio float64)
 }
 
-type list []printer
+type list []item
 
 func (items list) print() {
 	if len(items) == 0 {
