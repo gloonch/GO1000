@@ -4,12 +4,12 @@ func main() {
 	var (
 		minecraft = game{title: "minecraft", price: 20}
 		tetris    = game{title: "tetris", price: 10}
+		mobydick  = book{title: "tetris", price: 10}
+		rubik     = book{title: "rubik", price: 17}
 	)
 
-	var items []*game
-	items = append(items, &minecraft, &tetris)
+	var store list
+	store = append(store, &minecraft, &tetris, &mobydick, rubik)
+	store.print()
 
-	my := list(items)
-	//my = nil
-	my.print()
 }

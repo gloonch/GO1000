@@ -2,7 +2,12 @@ package main
 
 import "fmt"
 
-type list []*game
+// an abstract type/protocol/contract **no implementation
+type printer interface {
+	print()
+}
+
+type list []printer
 
 func (items list) print() {
 	if len(items) == 0 {
@@ -12,6 +17,7 @@ func (items list) print() {
 	}
 
 	for _, l := range items {
+		//fmt.Printf("(%-10T) --> ", l)
 		l.print()
 	}
 }
