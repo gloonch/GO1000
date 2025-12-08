@@ -18,19 +18,19 @@ func (b book) print() {
 }
 
 func format(publishing interface{}) string {
-	if publishing == nil {
+
+	var t int
+
+	switch publishing := publishing.(type) {
+	case string:
+		t, _ = strconv.Atoi(publishing)
+	case int:
+		t = publishing
+	default:
 		return "unknown"
 	}
 
-	var t int
-	if publishing, ok := publishing.(int); ok {
-		t = publishing
-	}
-	if publishing, ok := publishing.(string); ok {
-		t, _ = strconv.Atoi(publishing)
-	}
-
+	const layout = "2006/01"
 	u := time.Unix(int64(t), 0)
-	return u.String()
-
+	return u.Format(layout)
 }
