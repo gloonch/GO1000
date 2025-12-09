@@ -7,8 +7,13 @@ import (
 )
 
 var wg sync.WaitGroup
+var success, failure chan string
 
 func main() {
+
+	success = make(chan string)
+	failure = make(chan string)
+
 	urls := []string{
 		"https://google.com/not-found",
 		"https://google.com",
@@ -17,28 +22,42 @@ func main() {
 	}
 
 	wg.Add(len(urls))
+
 	for _, url := range urls {
 		go fetch(url)
 	}
+
+	go func() {
+		for {
+			select {
+			case success := <-success:
+				fmt.Println(success)
+				wg.Done()
+			case failure := <-failure:
+				fmt.Println(failure)
+				wg.Done()
+
+			}
+		}
+	}()
 
 	wg.Wait()
 }
 
 func fetch(url string) {
-	defer wg.Done()
 	res, err := http.Get(url)
 	if err != nil {
-		fmt.Printf("Error fetching %s: %s\n", url, err.Error())
+		failure <- fmt.Sprintf("Error fetching %s: %s\n", url, err.Error())
 
 		return
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		fmt.Printf("non-success on %s: %v\n", url, res.StatusCode)
+		failure <- fmt.Sprintf("non-success on %s: %v\n", url, res.StatusCode)
 
 		return
 	}
 
-	fmt.Printf("success on %v : %v\n", url, res.StatusCode)
+	success <- fmt.Sprintf("success on %v : %v\n", url, res.StatusCode)
 }
