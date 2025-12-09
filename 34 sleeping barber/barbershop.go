@@ -15,7 +15,7 @@ type BarberShop struct {
 	Open            bool
 }
 
-func (s BarberShop) addBarber(barber string) {
+func (s *BarberShop) addBarber(barber string) {
 	s.NumberOfBarbers++
 
 	go func() {
@@ -52,7 +52,39 @@ func (s *BarberShop) haircut(barber, client string) {
 	color.Green("%s is finished cutting %s's hair.", barber, client)
 }
 
-func (s BarberShop) sendBarberHome(barber string) {
+func (s *BarberShop) sendBarberHome(barber string) {
 	color.Cyan("%s is going home.", barber)
 	s.BarbersDoneChan <- true
+}
+
+func (s *BarberShop) closeShopForDay() {
+	color.Cyan("Closing shop for the day")
+
+	close(s.ClientChan)
+	s.Open = false
+
+	for a := 1; a <= s.NumberOfBarbers; a++ {
+		<-s.BarbersDoneChan
+	}
+
+	close(s.BarbersDoneChan)
+
+	color.Green("---------------------------------------------------------------------")
+	color.Green("The barbershop is now closed for the day, and everyone has gone home.")
+}
+
+func (s *BarberShop) addClient(client string) {
+	// print out a message
+	color.Green("*** %s arrives!", client)
+
+	if s.Open {
+		select {
+		case s.ClientChan <- client:
+			color.Yellow("%s takes a seat in the waiting room.", client)
+		default:
+			color.Red("The waiting room is full, so %s leaves.", client)
+		}
+	} else {
+		color.Red("The shop is already closed, so %s leaves.", client)
+	}
 }
