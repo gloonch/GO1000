@@ -12,8 +12,15 @@ type response struct {
 	message string
 }
 
+type summarizedResponse struct {
+	code        int
+	occurrences int
+}
+
 var wg sync.WaitGroup
+var mu sync.Mutex
 var success, failure chan response
+var sumResponse []*summarizedResponse
 
 func main() {
 
@@ -21,6 +28,10 @@ func main() {
 	failure = make(chan response)
 
 	urls := []string{
+		"https://google.com/not-found",
+		"https://google.com",
+		"https://openai.com",
+		"https://non-existent-url.com",
 		"https://google.com/not-found",
 		"https://google.com",
 		"https://openai.com",
@@ -37,9 +48,11 @@ func main() {
 		for {
 			select {
 			case success := <-success:
+				summarize(success)
 				fmt.Println(success)
 				wg.Done()
 			case failure := <-failure:
+				summarize(failure)
 				fmt.Println(failure)
 				wg.Done()
 
@@ -48,6 +61,11 @@ func main() {
 	}()
 
 	wg.Wait()
+
+	fmt.Println("--- results ---")
+	for _, sum := range sumResponse {
+		fmt.Printf("results by code: %v\n", sum.code)
+	}
 }
 
 func fetch(url string) {
@@ -78,4 +96,23 @@ func fetch(url string) {
 		code:    res.StatusCode,
 		message: res.Status,
 	}
+}
+
+func summarize(response response) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	for _, res := range sumResponse {
+		if res.code == response.code {
+			res.occurrences++
+
+			return
+		}
+	}
+
+	sumResponse = append(sumResponse, &summarizedResponse{
+		code:        response.code,
+		occurrences: 1,
+	})
+
 }
