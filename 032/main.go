@@ -23,11 +23,11 @@ func worker(ctx context.Context, id int) {
 func main() {
 	rootContext := context.Background()
 
-	ctx, cancel := context.WithTimeout(rootContext, time.Second*5)
-	defer cancel()
+	ctx, _ := context.WithTimeout(rootContext, time.Second*10)
+	deadlineCtx, _ := context.WithDeadline(ctx, time.Now().Add(time.Second*3))
 
 	go worker(ctx, 2)
-	go worker(ctx, 22)
+	go worker(deadlineCtx, 22)
 
 	fmt.Scanln()
 
