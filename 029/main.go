@@ -6,13 +6,19 @@ import (
 	"sync"
 )
 
+type response struct {
+	url     string
+	code    int
+	message string
+}
+
 var wg sync.WaitGroup
-var success, failure chan string
+var success, failure chan response
 
 func main() {
 
-	success = make(chan string)
-	failure = make(chan string)
+	success = make(chan response)
+	failure = make(chan response)
 
 	urls := []string{
 		"https://google.com/not-found",
@@ -47,17 +53,29 @@ func main() {
 func fetch(url string) {
 	res, err := http.Get(url)
 	if err != nil {
-		failure <- fmt.Sprintf("Error fetching %s: %s\n", url, err.Error())
+		failure <- response{
+			url:     url,
+			code:    0,
+			message: err.Error(),
+		}
 
 		return
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		failure <- fmt.Sprintf("non-success on %s: %v\n", url, res.StatusCode)
+		failure <- response{
+			url:     url,
+			code:    res.StatusCode,
+			message: res.Status,
+		}
 
 		return
 	}
 
-	success <- fmt.Sprintf("success on %v : %v\n", url, res.StatusCode)
+	success <- response{
+		url:     url,
+		code:    res.StatusCode,
+		message: res.Status,
+	}
 }
