@@ -2,12 +2,19 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"sync"
+	"time"
+
+	"github.com/alexedwards/scs/redisstore"
+	"github.com/alexedwards/scs/v2"
+	"github.com/gomodule/redigo/redis"
 	_ "github.com/jackc/pgconn"
 	_ "github.com/jackc/pgx/v4"
 	_ "github.com/jackc/pgx/v4/stdlib"
-	"log"
-	"os"
-	"time"
 )
 
 const webPort = "80"
@@ -17,18 +24,46 @@ func main() {
 	// database connection
 	db := initDB()
 	db.Ping()
+
 	// sessions
+	session := initSession()
+
+	// loggers
+	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
+	errorLog := log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
 	// channels
 
 	// waitgroup
+	wg := sync.WaitGroup{}
 
 	// set up the application config
+	app := Config{
+		Session:  session,
+		DB:       db,
+		InfoLog:  infoLog,
+		ErrorLog: errorLog,
+		Wait:     &wg,
+	}
 
 	// set up mail
 
 	// listen for web connections
+	app.serve()
+}
 
+func (app *Config) serve() {
+
+	// start http server
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%s", webPort),
+		Handler: app.routes(),
+	}
+	app.InfoLog.Println("Starting web server on port " + webPort)
+	err := srv.ListenAndServe()
+	if err != nil {
+		log.Panic(err)
+	}
 }
 
 func initDB() *sql.DB {
@@ -75,4 +110,28 @@ func openDB(dsn string) (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+// --- redis ---
+
+func initSession() *scs.SessionManager {
+	session := scs.New()
+
+	session.Store = redisstore.New(initRedis())
+	session.Lifetime = 24 * time.Hour
+	session.Cookie.Persist = true
+	session.Cookie.SameSite = http.SameSiteLaxMode
+	session.Cookie.Secure = true
+
+	return session
+}
+
+func initRedis() *redis.Pool {
+	pool := redis.Pool{
+		Dial: func() (redis.Conn, error) {
+			return redis.Dial("tcp", os.Getenv("REDIS"))
+		},
+		MaxIdle: 10,
+	}
+	return &pool
 }
