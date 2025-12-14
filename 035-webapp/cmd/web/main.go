@@ -6,8 +6,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
+	"webapp/data"
 
 	"github.com/alexedwards/scs/redisstore"
 	"github.com/alexedwards/scs/v2"
@@ -20,21 +23,20 @@ import (
 const webPort = "80"
 
 func main() {
-
-	// database connection
+	// connect to the database
 	db := initDB()
 	db.Ping()
 
-	// sessions
+	// create sessions
 	session := initSession()
 
-	// loggers
+	// create loggers
 	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
 	errorLog := log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
 	// channels
 
-	// waitgroup
+	// create waitgroup
 	wg := sync.WaitGroup{}
 
 	// set up the application config
@@ -44,53 +46,62 @@ func main() {
 		InfoLog:  infoLog,
 		ErrorLog: errorLog,
 		Wait:     &wg,
+		Models:   data.New(db),
 	}
 
 	// set up mail
+
+	// listen for signals
+	go app.listenForShutdown()
 
 	// listen for web connections
 	app.serve()
 }
 
 func (app *Config) serve() {
-
 	// start http server
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%s", webPort),
 		Handler: app.routes(),
 	}
-	app.InfoLog.Println("Starting web server on port " + webPort)
+
+	app.InfoLog.Println("Starting web server...")
 	err := srv.ListenAndServe()
 	if err != nil {
 		log.Panic(err)
 	}
 }
 
+// initDB connects to Postgres and returns a pool of connections
 func initDB() *sql.DB {
 	conn := connectToDB()
 	if conn == nil {
-		log.Panic("failed to connect to database")
+		log.Panic("can't connect to database")
 	}
 	return conn
 }
 
+// connectToDB tries to connect to postgres, and backs off until a connection
+// is made, or we have not connected after 10 tries
 func connectToDB() *sql.DB {
 	counts := 0
+
 	dsn := os.Getenv("DSN")
 
 	for {
-		conn, err := openDB(dsn)
+		connection, err := openDB(dsn)
 		if err != nil {
-			log.Println("postgres not yet ready")
+			log.Println("postgres not yet ready...")
 		} else {
-			log.Println("connected to postgres")
-			return conn
+			log.Print("connected to database!")
+			return connection
 		}
 
 		if counts > 10 {
 			return nil
 		}
-		log.Println("backing off for 1 second")
+
+		log.Print("Backing off for 1 second")
 		time.Sleep(1 * time.Second)
 		counts++
 
@@ -98,8 +109,10 @@ func connectToDB() *sql.DB {
 	}
 }
 
+// openDB opens a connection to Postgres, using a DSN read
+// from the environment variable DSN
 func openDB(dsn string) (*sql.DB, error) {
-	db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -112,11 +125,12 @@ func openDB(dsn string) (*sql.DB, error) {
 	return db, nil
 }
 
-// --- redis ---
-
+// initSession sets up a session, using Redis for session store
 func initSession() *scs.SessionManager {
-	session := scs.New()
+	//gob.Register(data.User{})
 
+	// set up session
+	session := scs.New()
 	session.Store = redisstore.New(initRedis())
 	session.Lifetime = 24 * time.Hour
 	session.Cookie.Persist = true
@@ -126,12 +140,33 @@ func initSession() *scs.SessionManager {
 	return session
 }
 
+// initRedis returns a pool of connections to Redis using the
+// environment variable REDIS
 func initRedis() *redis.Pool {
-	pool := redis.Pool{
+	redisPool := &redis.Pool{
+		MaxIdle: 10,
 		Dial: func() (redis.Conn, error) {
 			return redis.Dial("tcp", os.Getenv("REDIS"))
 		},
-		MaxIdle: 10,
 	}
-	return &pool
+
+	return redisPool
+}
+
+func (app *Config) listenForShutdown() {
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	app.shutdown()
+	os.Exit(0)
+}
+
+func (app *Config) shutdown() {
+	// perform any cleanup tasks
+	app.InfoLog.Println("would run cleanup tasks...")
+
+	// block until waitgroup is empty
+	app.Wait.Wait()
+
+	app.InfoLog.Println("closing channels and shutting down application...")
 }

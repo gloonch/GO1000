@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   postgres:
     image: 'postgres:14.2'
@@ -7,12 +5,9 @@ services:
       - "5432:5432"
     restart: always
     environment:
-      POSTGRES_USER:
-        postgres
-      POSTGRES_PASSWORD:
-        password
-      POSTGRES_DB:
-        concurrency
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: concurrency
     volumes:
       - ./db-data/postgres/:/var/lib/postgresql/data
 
@@ -30,3 +25,4 @@ services:
       - "1025:1025"
       - "8025:8025"
     restart: always
+    platform: linux/amd64
